@@ -922,21 +922,22 @@ function viewDatapoints() {
     const by = deliveredBy(d.code);
     return `<tr class="click" data-dp="${d.code}"><td>${esc(d.label)}<div class="meta">${d.code}</div></td><td>${GROUP_LABEL[d.group]}</td>
       <td>${by.map(srcChip).join(' ') || '<span class="meta">—</span>'}</td>
-      <td>${own === 'CLIENT' ? '<span class="chip ok">AAIS in-house</span>' : `<span class="chip mute">${esc(PROVIDERS[own].short)}</span>`}</td>
+      <td>${own === 'CLIENT' ? '<span class="chip ok">Custom · AAIS</span>' : `<span class="chip mute">Standard · ${esc(PROVIDERS[own].short)}</span>`}</td>
       <td class="num">${n} / ${act.length}</td>
-      <td class="num">${isNow() ? (own === 'CLIENT' ? `<button class="ghost" data-own="${d.code}|back">Hand back to Morningstar</button>` : `<button class="btn sm" data-own="${d.code}|take">Manage in-house</button>`) : ''}</td></tr>`;
+      <td class="num">${isNow() ? (own === 'CLIENT' ? `<button class="ghost" data-own="${d.code}|back">Back to standard</button>` : `<button class="btn sm" data-own="${d.code}|take">Make custom</button>`) : ''}</td></tr>`;
   }).join('');
   const inHouse = STATIC_DPS.filter(d => ownerOf(d.code) === 'CLIENT').length;
   const ms = STATIC_DPS.filter(d => ownerOf(d.code) === 'SPA').length;
   return `${pastNotice()}
   <div class="pagehead"><div><h1>Universe</h1>
-    <p class="lead">The data points Fundscreener shows for AAIS. Today Morningstar manages most of them. Take a data point in-house to make AAIS the leading source; Morningstar values stay as fallback where AAIS has not entered a value.</p>
-    <p class="meta" style="margin:6px 0 0">${ms} managed by Morningstar · ${inHouse} managed in-house by AAIS · ${STATIC_DPS.length - ms - inHouse} other</p></div></div>
+    <p class="lead">The data points Fundscreener shows for AAIS. <b>Standard</b> data points follow the catalogue and Morningstar leads. A <b>custom</b> data point is one AAIS manages itself: AAIS values lead, Morningstar stays as fallback where AAIS has not entered a value.</p>
+    <p class="meta" style="margin:6px 0 0">${ms} standard (Morningstar leads) · ${inHouse} custom (AAIS) · ${STATIC_DPS.length - ms - inHouse} standard with another leading source</p></div></div>
   ${areaTabs()}
   <section class="card"><div class="tablewrap"><table>
-    <thead><tr><th>Data point</th><th>Group</th><th>Delivered by</th><th>Leading source</th><th class="num">Filled</th><th></th></tr></thead>
+    <thead><tr><th>Data point</th><th>Group</th><th>Delivered by</th><th>Type · leading source</th><th class="num">Filled</th><th></th></tr></thead>
     <tbody>${rows}</tbody></table></div></section>
-  <p class="caption">Taking a data point in-house adds a data point override (Settings → Priority rules) from this moment; earlier golden values are not changed. Copying Morningstar values into AAIS values is not offered: that depends on the Morningstar licence.</p>`;
+  <div class="notice">Customisation levels are still being defined. This prototype shows one level: AAIS overrides the value per share class while the definition stays standard.</div>
+  <p class="caption">Making a data point custom adds a data point override (Settings → Priority rules) from this moment; earlier golden values are not changed. Copying Morningstar values into AAIS values is not offered: that depends on the Morningstar licence.</p>`;
 }
 
 function viewDatapoint(code) {
@@ -952,10 +953,10 @@ function viewDatapoint(code) {
   return `${pastNotice()}
   <div class="pagehead"><div><button class="ghost back" data-dp="">← All data points</button><h1>${esc(d.label)}</h1>
     <p class="lead">${d.code} · ${GROUP_LABEL[d.group]} · ${esc(d.std)}${d.fs ? ` · shown in Fundscreener as “${esc(d.fs)}”` : ''}</p>
-    <p class="meta" style="margin:6px 0 0">Leading source: <b>${own === 'CLIENT' ? 'AAIS in-house' : esc(PROVIDERS[own].name)}</b>${d.check ? ' · checks: ' + esc(d.check) : ''}</p></div>
-    ${isNow() ? (own === 'CLIENT' ? `<div class="actions"><button class="btn" data-own="${code}|back">Hand back to Morningstar</button><button class="btn primary" data-savedp="${code}">Save changes</button></div>` : `<div class="actions"><button class="btn primary" data-own="${code}|take">Manage in-house</button></div>`) : ''}</div>
+    <p class="meta" style="margin:6px 0 0">Type: <b>${own === 'CLIENT' ? 'Custom data point (AAIS)' : 'Standard data point · ' + esc(PROVIDERS[own].name) + ' leads'}</b>${d.check ? ' · checks: ' + esc(d.check) : ''}</p></div>
+    ${isNow() ? (own === 'CLIENT' ? `<div class="actions"><button class="btn" data-own="${code}|back">Back to standard</button><button class="btn primary" data-savedp="${code}">Save changes</button></div>` : `<div class="actions"><button class="btn primary" data-own="${code}|take">Make custom</button></div>`) : ''}</div>
   ${areaTabs()}
-  ${!editable && isNow() ? `<div class="notice">Morningstar leads this data point. Choose “Manage in-house” to enter AAIS values.</div>` : ''}
+  ${!editable && isNow() ? `<div class="notice">Standard data point: Morningstar leads. Choose “Make custom” to manage it as an AAIS custom data point.</div>` : ''}
   ${state.dpErr ? `<div class="err" role="alert">${state.dpErr}</div>` : ''}
   <section class="card"><div class="tablewrap"><table>
     <thead><tr><th>ISIN</th><th>Share class</th><th class="num">Golden value</th><th class="num">Morningstar</th><th>AAIS value</th></tr></thead>
@@ -1060,8 +1061,8 @@ function fsClick(e) {
   if (ds.own) {
     const [code, how] = ds.own.split('|'); state.clock += 2; const t = ACTION_TIME();
     (rules.dp[code] ||= []).push({ order: how === 'take' ? [...IN_HOUSE] : [...latest(rules.global, NOW).order], from: t, by: USER });
-    audit.push({ at: t, actor: USER, action: how === 'take' ? 'datapoint.take_in_house' : 'datapoint.hand_back', obj: code, details: how === 'take' ? 'AAIS leads; Morningstar is fallback' : 'Morningstar leads again' });
-    toast(how === 'take' ? `${DP[code].label} is now managed in-house by AAIS. Enter AAIS values where they differ.` : `${DP[code].label} handed back to Morningstar.`);
+    audit.push({ at: t, actor: USER, action: how === 'take' ? 'datapoint.make_custom' : 'datapoint.make_standard', obj: code, details: how === 'take' ? 'AAIS leads; Morningstar is fallback' : 'Morningstar leads again' });
+    toast(how === 'take' ? `${DP[code].label} is now a custom data point for AAIS. Enter AAIS values where they differ.` : `${DP[code].label} is a standard data point again; Morningstar leads.`);
     if (how === 'take') state.dpSel = code; render(); return true;
   }
   if (ds.savedp !== undefined) {
