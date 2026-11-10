@@ -1,0 +1,918 @@
+<title>FinFiles Data Management</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: FinFiles design system v1.0 — dark-blue topbar with 3-item navigation, tabs inside each area, white cards on #F5F7FA.
+   Single light theme on purpose: the FinFiles UI defines no dark mode. */
+:root {
+  color-scheme: light;
+  --dark-blue: #004890; --dark-blue-hover: #003670; --bright-blue: #019EE0;
+  --green: #6DAB41; --red: #F44336; --orange: #FF9800; --grey: #78909C;
+  --white: #FFFFFF; --text: #1A1A2E; --page: #F5F7FA; --fill: #EFF3F8; --border: #E8ECF0; --row: #F0F2F5;
+  --green-tint: rgba(109,171,65,.14); --red-tint: rgba(244,67,54,.12); --orange-tint: rgba(255,152,0,.16); --blue-tint: rgba(0,72,144,.08);
+  --green-text: #4E8A28; --red-text: #C62A1F; --orange-text: #A35F00;
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+html, body { height: 100%; }
+body { background: var(--page); color: var(--text); font-family: var(--font); font-size: 14px; line-height: 1.5; }
+* { box-sizing: border-box; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--bright-blue); outline-offset: 2px; }
+.num, .isin, .ts { font-variant-numeric: tabular-nums; }
+.isin { letter-spacing: .02em; }
+a { color: var(--dark-blue); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--dark-blue); }
+
+.shell { min-height: 100%; display: flex; flex-direction: column; }
+/* Topbar */
+.topbar { background: var(--dark-blue); color: var(--white); position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; }
+.topbar .in { max-width: 1248px; margin: 0 auto; min-height: 64px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 28px;
+  padding-block: 8px; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+.logo { display: flex; flex-direction: column; gap: 2px; text-decoration: none; color: var(--white); }
+.logo img { height: 28px; width: auto; display: block; }
+.logo span { font-size: 13px; opacity: .6; }
+.mainnav { display: flex; gap: 4px; align-self: stretch; }
+.mainnav a { display: flex; align-items: center; padding: 0 12px; color: rgba(255,255,255,.75); text-decoration: none; font-weight: 500; border-bottom: 2px solid transparent; position: relative; }
+.mainnav a:hover { color: var(--white); }
+.mainnav a.on { color: var(--white); font-weight: 600; border-bottom-color: var(--bright-blue); }
+.mainnav .badge { margin-left: 6px; font-size: 11px; font-weight: 600; background: var(--red); color: var(--white); border-radius: 999px; padding: 0 6px; }
+.utility { margin-left: auto; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.knownat { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.knownat label { opacity: .7; }
+.knownat select { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.3); color: var(--white); border-radius: 6px; padding: 5px 8px; }
+.knownat select option { color: var(--text); }
+.clientname { font-size: 13px; opacity: .85; }
+.avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,.15); display: grid; place-items: center; font-size: 12px; font-weight: 600; }
+
+/* Content */
+main { flex: 1; width: 100%; max-width: 1248px; margin: 0 auto; padding-block: 24px 48px;
+  padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 16px; }
+h1 { font-size: 28px; font-weight: 700; line-height: 1.2; margin: 0; text-wrap: balance; }
+h2 { font-size: 20px; font-weight: 600; line-height: 1.3; margin: 0; }
+h3 { font-size: 16px; font-weight: 600; margin: 0; }
+.meta { color: var(--grey); font-size: 12px; }
+.lead { color: var(--grey); margin: 6px 0 0; max-width: 72ch; }
+.pagehead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px; }
+.back { font-size: 13px; text-decoration: none; }
+.back:hover { text-decoration: underline; }
+
+.card { background: var(--white); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.card > .hd { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px 24px; border-bottom: 1px solid var(--row); }
+.card > .bd { padding: 24px; }
+.grid { display: grid; gap: 16px; }
+.tiles { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.two { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+.tile { padding: 20px 24px; display: flex; flex-direction: column; gap: 4px; color: inherit; text-decoration: none; }
+.tile .lab { font-size: 12px; color: var(--grey); text-transform: uppercase; letter-spacing: .06em; }
+.tile .val { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tile.alert { border-left: 3px solid var(--red); }
+
+.notice { padding: 12px 16px; border-radius: 8px; background: var(--orange-tint); border: 1px solid var(--orange); color: var(--text); }
+
+.tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.tabs a, .tabs button { border: 0; background: none; padding: 10px 12px; color: var(--grey); text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap; cursor: pointer; }
+.tabs .on { color: var(--text); border-bottom-color: var(--bright-blue); }
+
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: 12px; font-weight: 400; color: var(--grey); text-transform: uppercase; letter-spacing: .05em; padding: 12px 16px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 13px 16px; border-bottom: 1px solid var(--row); vertical-align: middle; }
+td.num, th.num { text-align: right; white-space: nowrap; }
+tr.click { cursor: pointer; }
+tr.click:hover td { background: var(--page); }
+tr.fundrow td { background: var(--fill); padding-block: 10px; }
+tr.removed td { color: var(--grey); }
+tr.removed .isin { text-decoration: line-through; }
+tr.lineage > td { background: var(--page); padding: 0; }
+tr.confirm td { background: var(--red-tint); }
+.lin { padding: 16px 16px 16px 32px; display: flex; flex-direction: column; gap: 12px; }
+.lin table { background: var(--white); border: 1px solid var(--border); border-radius: 8px; }
+.why { color: var(--grey); font-size: 13px; }
+
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+.src { background: var(--fill); color: var(--dark-blue); }
+.src-MANUAL { background: var(--white); color: var(--dark-blue); box-shadow: inset 0 0 0 1px var(--dark-blue); }
+.src-CLIENT { background: var(--white); color: var(--text); box-shadow: inset 0 0 0 1px var(--grey); }
+.src-SPC, .src-MS { background: var(--fill); color: var(--grey); }
+.ok { background: var(--green-tint); color: var(--green-text); }
+.warn { background: var(--orange-tint); color: var(--orange-text); }
+.bad { background: var(--red-tint); color: var(--red-text); }
+.mute { background: var(--fill); color: var(--grey); }
+
+.btn { border-radius: 6px; padding: 10px 20px; font-weight: 600; cursor: pointer; border: 1px solid var(--dark-blue); background: var(--white); color: var(--dark-blue); white-space: nowrap; }
+.btn.primary { background: var(--dark-blue); color: var(--white); }
+.btn.primary:hover { background: var(--dark-blue-hover); }
+.btn.sm { padding: 5px 12px; font-size: 13px; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.ghost { border: 0; background: none; color: var(--dark-blue); padding: 4px 6px; cursor: pointer; }
+.ghost:hover { text-decoration: underline; }
+.ghost.danger { color: var(--red-text); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 16px 24px; border-bottom: 1px solid var(--row); }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; }
+.fchip { background: var(--fill); color: var(--dark-blue); font-size: 13px; border-radius: 4px; padding: 4px 10px; border: 0; cursor: pointer; }
+.fchip.on { background: var(--dark-blue); color: var(--white); }
+input[type=text], input[type=search], input[type=date], select, textarea { background: var(--fill); border: 1px solid var(--border); border-radius: 6px; padding: 9px 12px; min-width: 0; }
+input:focus, select:focus, textarea:focus { border-color: var(--bright-blue); outline: none; }
+input::placeholder { color: var(--grey); }
+.search { flex: 1 1 240px; max-width: 360px; }
+.search input { width: 100%; }
+
+.form { display: flex; flex-direction: column; gap: 10px; padding: 16px; background: var(--white); border: 1px solid var(--border); border-radius: 8px; max-width: 560px; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field label { font-size: 12px; color: var(--grey); }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.err { color: var(--red-text); font-size: 13px; }
+.form textarea { min-height: 64px; resize: vertical; }
+
+.queue { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .queue { grid-template-columns: minmax(0, 1fr); } }
+.exc { display: grid; grid-template-columns: 3px minmax(0, 1fr); border-bottom: 1px solid var(--row); cursor: pointer; }
+.exc:hover, .exc.sel { background: var(--page); }
+.exc .stripe.blocking { background: var(--red); } .exc .stripe.warning { background: var(--orange); } .exc .stripe.done { background: var(--border); }
+.exc .in { padding: 12px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.row1 { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+.order { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.order li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; }
+.order .rank { color: var(--grey); width: 1.4em; font-variant-numeric: tabular-nums; }
+.order .sp { flex: 1; }
+.lvl { font-size: 12px; color: var(--grey); text-transform: uppercase; letter-spacing: .06em; }
+
+.bar { display: grid; grid-template-columns: 9em minmax(0, 1fr) 2em; align-items: center; gap: 12px; }
+.bar .track { height: 8px; background: var(--fill); border-radius: 4px; overflow: hidden; }
+.bar .fill { display: block; height: 100%; background: var(--dark-blue); }
+.chart text { fill: var(--grey); font-size: 11px; font-family: var(--font); }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.caption { font-size: 11px; color: var(--grey); }
+
+/* Modal */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 30; display: flex; align-items: flex-start; justify-content: center; overflow-y: auto;
+  padding: calc(48px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(48px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.modal { background: var(--white); border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,.12); width: 100%; max-width: 600px; padding: 32px; display: flex; flex-direction: column; gap: 16px; position: relative; }
+@media (max-width: 520px) { .modal { padding: 20px; } }
+.modal .x { position: absolute; top: 16px; right: 16px; border: 0; background: none; color: var(--grey); font-size: 22px; line-height: 1; cursor: pointer; padding: 4px 8px; }
+.modal .foot { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; padding-top: 8px; }
+.section { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 8px; }
+.section .sh { display: flex; justify-content: space-between; align-items: center; }
+.pick { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--row); }
+.pick:last-child { border-bottom: 0; }
+.pick input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--dark-blue); }
+.pick.disabled { color: var(--grey); }
+
+footer.foot { border-top: 1px solid var(--border); background: var(--white); }
+footer.foot .in { max-width: 1248px; margin: 0 auto; min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  padding-block: 8px calc(8px + env(safe-area-inset-bottom, 0px)); padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+footer.foot img { height: 20px; width: auto; display: block; }
+
+.toast { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(64px + env(safe-area-inset-bottom, 0px)); background: var(--text); color: var(--white); padding: 12px 16px; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,.12); max-width: min(440px, calc(100vw - 32px)); z-index: 40; }
+
+@media (max-width: 768px) {
+  .topbar .in { gap: 8px 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .mainnav { order: 3; width: 100%; overflow-x: auto; }
+  .mainnav a { padding: 10px 10px; }
+  .clientname { display: none; }
+  main { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .card > .bd, .card > .hd, .toolbar { padding-left: 16px; padding-right: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="shell">
+  <header class="topbar"><div class="in">
+    <a class="logo" href="#universe" aria-label="FinFiles Data Management home"><img src="assets/finfiles-logo-light.png" alt="FinFiles"><span>Data Management</span></a>
+    <nav class="mainnav" id="mainnav" aria-label="Main"></nav>
+    <div class="utility">
+      <div class="knownat"><label for="knownat">Known at</label>
+        <select id="knownat">
+          <option value="2026-11-10T23:59">Now · 10 Nov 2026</option>
+          <option value="2026-11-01T23:59">1 Nov 2026</option>
+          <option value="2026-10-01T23:59">1 Oct 2026</option>
+        </select></div>
+      <span class="clientname">Demo Asset Management</span>
+      <span class="avatar" title="m.jansen · Data steward">MJ</span>
+    </div>
+  </div></header>
+  <main id="main"></main>
+  <footer class="foot"><div class="in">
+    <img src="assets/finfiles-logo.png" alt="FinFiles">
+    <span class="caption">Data Management prototype · synthetic data only · client: Demo Asset Management</span>
+  </div></footer>
+</div>
+<div id="modal"></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+'use strict';
+const NOW = '2026-11-10T23:59';
+const USER = 'm.jansen';
+const state = { route: 'universe', knownAt: NOW, tab: 'char', open: new Set(), sel: 'EX-1042', q: '', filter: 'all', clock: 12,
+  editOrder: null, formErr: '', confirmRemove: null, modal: null, draft: null, pick: new Set(), pickQ: '', modalErr: '', flash: null };
+const ACTION_TIME = () => '2026-11-10T' + String(9 + Math.floor(state.clock / 60)).padStart(2, '0') + ':' + String(state.clock % 60).padStart(2, '0');
+const isNow = () => state.knownAt === NOW;
+
+// ---------- ISIN with real check digit ----------
+function isinCheck(body) {
+  const digits = body.toUpperCase().split('').map(c => /[0-9]/.test(c) ? c : String(c.charCodeAt(0) - 55)).join('');
+  let sum = 0, dbl = true;
+  for (let i = digits.length - 1; i >= 0; i--) { let d = +digits[i]; if (dbl) { d *= 2; if (d > 9) d -= 9; } sum += d; dbl = !dbl; }
+  return (10 - sum % 10) % 10;
+}
+const mkIsin = body => body + isinCheck(body);
+const isinValid = s => /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(s) && isinCheck(s.slice(0, 11)) === +s[11];
+
+// ---------- synthetic reference data (fictional) ----------
+const PROVIDERS = {
+  MANUAL: { name: 'Manual correction', short: 'Manual', kind: 'Steward entry', licensed: true },
+  CLIENT: { name: 'Client entry', short: 'Client entry', kind: 'Entered in the universe by the client', licensed: true },
+  SPA: { name: 'Sample Provider A', short: 'Provider A', kind: 'REST API', licensed: true, licence: '2026-01-01 → open', mapping: 'sample_a.yaml @ 3f9c2e1' },
+  SPB: { name: 'Sample Provider B', short: 'Provider B', kind: 'CSV file (SFTP)', licensed: true, licence: '2026-01-01 → 2027-12-31', mapping: 'sample_b.yaml @ 3f9c2e1' },
+  SPC: { name: 'Sample Provider C', short: 'Provider C', kind: 'REST API', licensed: false, licence: 'No licence for this client' },
+  MS: { name: 'Morningstar', short: 'Morningstar', kind: 'REST API', licensed: null, licence: 'Planned · licence terms under review (A-25)' },
+};
+const LEGAL = { FGR: 'UCITS mutual fund (FGR)', NV: 'UCITS investment company (NV)', SICAV: 'UCITS SICAV', AIF: 'AIF' };
+const FUNDS = {
+  F1: { name: 'Polder Global Equity Fund', legal: 'FGR', dom: 'NL', sfdr: 'Article 8', origin: 'provider' },
+  F2: { name: 'Utrecht Sustainable Bond Fund', legal: 'FGR', dom: 'NL', sfdr: 'Article 9', origin: 'provider' },
+  F3: { name: 'Delta Multi-Asset Fund', legal: 'SICAV', dom: 'LU', sfdr: 'Article 6', origin: 'provider' },
+};
+const BASE_ADDED = '2026-01-02T09:00';
+const SC = [
+  { id: 'sc1', fund: 'F1', isin: mkIsin('NL009900001'), name: 'Polder Global Equity A Acc EUR', ccy: 'EUR', dist: 'Accumulating', inc: '2015-03-02', sri: 4, ocf: 1.38, mgmt: 1.00, entry: 3.00, exit: 0.00, tc: 0.14, perf: 0.00, nav: 184.20 },
+  { id: 'sc2', fund: 'F1', isin: mkIsin('NL009900002'), name: 'Polder Global Equity I Acc EUR', ccy: 'EUR', dist: 'Accumulating', inc: '2015-03-02', sri: 4, ocf: 0.82, mgmt: 0.75, entry: 0.00, exit: 0.00, tc: 0.14, perf: 0.00, nav: 201.75 },
+  { id: 'sc3', fund: 'F1', isin: mkIsin('NL009900003'), name: 'Polder Global Equity A Dist USD', ccy: 'USD', dist: 'Distributing', inc: '2018-09-17', sri: 4, ocf: 1.40, mgmt: 1.00, entry: 3.00, exit: 0.00, tc: 0.14, perf: 0.00, nav: 132.48 },
+  { id: 'sc4', fund: 'F2', isin: mkIsin('NL009900004'), name: 'Utrecht Sustainable Bond A Acc EUR', ccy: 'EUR', dist: 'Accumulating', inc: '2019-01-14', sri: 2, ocf: 0.65, mgmt: 0.45, entry: 1.00, exit: 0.00, tc: 0.06, perf: 0.00, nav: 98.31 },
+  { id: 'sc5', fund: 'F2', isin: mkIsin('NL009900005'), name: 'Utrecht Sustainable Bond I Dist EUR', ccy: 'EUR', dist: 'Distributing', inc: '2019-01-14', sri: 2, ocf: 0.38, mgmt: 0.25, entry: 0.50, exit: 0.00, tc: 0.06, perf: 0.00, nav: 95.06 },
+  { id: 'sc6', fund: 'F3', isin: mkIsin('LU009900006'), name: 'Delta Multi-Asset A Acc EUR', ccy: 'EUR', dist: 'Accumulating', inc: '2012-06-01', sri: 3, ocf: 1.21, mgmt: 0.90, entry: 2.00, exit: 0.00, tc: 0.18, perf: 10.00, nav: 143.90 },
+  { id: 'sc7', fund: 'F3', isin: mkIsin('LU009900007'), name: 'Delta Multi-Asset B Acc GBP', ccy: 'GBP', dist: 'Accumulating', inc: '2016-11-21', sri: 3, ocf: 1.25, mgmt: 0.90, entry: 2.00, exit: 0.00, tc: 0.18, perf: 10.00, nav: 117.62 },
+  { id: 'sc8', fund: 'F3', isin: mkIsin('LU009900008'), name: 'Delta Multi-Asset I Acc EUR', ccy: 'EUR', dist: 'Accumulating', inc: '2012-06-01', sri: 3, ocf: 0.71, mgmt: 0.55, entry: 0.00, exit: 0.00, tc: 0.18, perf: 10.00, nav: 158.03 },
+].map(s => ({ ...s, origin: 'provider', addedAt: BASE_ADDED, addedBy: 'onboarding', removedAt: null }));
+
+// Share classes the licensed providers cover but that are not in this client's universe yet
+const COVERAGE = [
+  { fundKey: 'F4', fundNew: { name: 'Rijn Euro Equity Fund', legal: 'FGR', dom: 'NL', sfdr: 'Article 8', origin: 'provider' },
+    isin: mkIsin('NL009900011'), name: 'Rijn Euro Equity A Acc EUR', ccy: 'EUR', dist: 'Accumulating', inc: '2017-04-03', sri: 4, ocf: 1.15, mgmt: 0.85, entry: 2.00, exit: 0.00, tc: 0.11, perf: 0.00, srcs: ['SPA', 'SPB'] },
+  { fundKey: 'F4', fundNew: null, isin: mkIsin('NL009900012'), name: 'Rijn Euro Equity I Acc EUR', ccy: 'EUR', dist: 'Accumulating', inc: '2017-04-03', sri: 4, ocf: 0.66, mgmt: 0.50, entry: 0.00, exit: 0.00, tc: 0.11, perf: 0.00, srcs: ['SPA'] },
+  { fundKey: 'F1', fundNew: null, isin: mkIsin('NL009900013'), name: 'Polder Global Equity I Dist EUR', ccy: 'EUR', dist: 'Distributing', inc: '2020-02-03', sri: 4, ocf: 0.83, mgmt: 0.75, entry: 0.00, exit: 0.00, tc: 0.14, perf: 0.00, srcs: ['SPA', 'SPB'] },
+  { fundKey: 'F2', fundNew: null, isin: mkIsin('NL009900014'), name: 'Utrecht Sustainable Bond B Acc CHF', ccy: 'CHF', dist: 'Accumulating', inc: '2021-05-10', sri: 2, ocf: 0.70, mgmt: 0.45, entry: 1.00, exit: 0.00, tc: 0.06, perf: 0.00, srcs: ['SPB'] },
+  { fundKey: 'F5', fundNew: { name: 'Zeeland Global Small Cap Fund', legal: 'AIF', dom: 'NL', sfdr: 'Article 6', origin: 'provider' },
+    isin: mkIsin('NL009900015'), name: 'Zeeland Global Small Cap A Acc EUR', ccy: 'EUR', dist: 'Accumulating', inc: '2014-09-01', sri: 5, ocf: 1.60, mgmt: 1.25, entry: 3.00, exit: 0.50, tc: 0.25, perf: 15.00, srcs: ['SPC'] },
+];
+
+const newFundOf = key => (COVERAGE.find(c => c.fundKey === key && c.fundNew) || {}).fundNew;
+const coverageFundName = c => FUNDS[c.fundKey] ? FUNDS[c.fundKey].name : newFundOf(c.fundKey).name + ' (new fund)';
+
+const DPS = [
+  { code: 'share_class.name', label: 'Share class name', key: 'name', type: 'text', group: 'char', std: 'EMT · openfunds' },
+  { code: 'share_class.currency', label: 'Share class currency', key: 'ccy', type: 'code', group: 'char', std: 'EMT · openfunds' },
+  { code: 'share_class.distribution_policy', label: 'Distribution policy', key: 'dist', type: 'code', group: 'char', std: 'openfunds' },
+  { code: 'share_class.inception_date', label: 'Inception date', key: 'inc', type: 'date', group: 'char', std: 'openfunds' },
+  { code: 'share_class.sri', label: 'Summary risk indicator (SRI)', key: 'sri', type: 'int', group: 'char', std: 'EMT', check: 'required, 1–7' },
+  { code: 'fees.ongoing_charges', label: 'Ongoing charges', key: 'ocf', type: 'pct', group: 'fees', std: 'EMT · EPT', check: 'range 0–10 %, divergence 0.05 pt' },
+  { code: 'fees.management_fee', label: 'Management fee', key: 'mgmt', type: 'pct', group: 'fees', std: 'EMT · EPT', check: 'range 0–5 %' },
+  { code: 'fees.max_entry_cost', label: 'Maximum entry cost', key: 'entry', type: 'pct', group: 'fees', std: 'EMT', check: 'range 0–10 %, stale > 180 days' },
+  { code: 'fees.max_exit_cost', label: 'Maximum exit cost', key: 'exit', type: 'pct', group: 'fees', std: 'EMT', check: 'range 0–10 %' },
+  { code: 'fees.transaction_costs', label: 'Transaction costs', key: 'tc', type: 'pct', group: 'fees', std: 'EMT · EPT', check: 'range −1–5 %' },
+  { code: 'fees.performance_fee', label: 'Performance fee', key: 'perf', type: 'pct', group: 'fees', std: 'EMT · EPT', check: 'range 0–30 %' },
+  { code: 'nav.value', label: 'Net asset value per share', key: 'nav', type: 'nav', group: 'nav', std: 'openfunds', check: 'day-on-day move > 5 % blocks' },
+];
+const DP = Object.fromEntries(DPS.map(d => [d.code, d]));
+const STATIC_DPS = DPS.filter(d => d.group !== 'nav');
+
+// candidates[scId][dpCode] = [{src, v, eff, rec, blocked?, by?, reason?}]
+const cand = {};
+function seedCandidates(s, srcs, eff, recA, recB) {
+  cand[s.id] = {};
+  for (const d of STATIC_DPS) {
+    cand[s.id][d.code] = [];
+    if (s[d.key] === undefined || s[d.key] === '' || s[d.key] === null) continue;
+    if (srcs.includes('SPA')) cand[s.id][d.code].push({ src: 'SPA', v: s[d.key], eff, rec: recA });
+    if (srcs.includes('SPB')) cand[s.id][d.code].push({ src: 'SPB', v: s[d.key], eff, rec: recB });
+    if (srcs.includes('CLIENT')) cand[s.id][d.code].push({ src: 'CLIENT', v: s[d.key], eff, rec: recA, by: USER, reason: 'Entered when the fund was created in the universe.' });
+  }
+}
+SC.forEach(s => seedCandidates(s, ['SPA', 'SPB'], '2026-01-01', '2026-01-03T06:10', '2026-01-05T07:30'));
+const C = (sc, dp) => cand[sc][dp];
+C('sc1', 'fees.ongoing_charges').push(
+  { src: 'SPB', v: 1.52, eff: '2026-10-01', rec: '2026-10-14T07:30' },
+  { src: 'SPA', v: 1.45, eff: '2026-10-15', rec: '2026-10-15T06:12' },
+  { src: 'SPC', v: 1.40, eff: '2026-10-15', rec: '2026-10-15T05:00' });
+C('sc6', 'fees.ongoing_charges').push({ src: 'SPB', v: 121.0, eff: '2026-11-01', rec: '2026-11-03T07:30', blocked: 'range' });
+cand.sc4['share_class.sri'] = [];
+cand.sc5['fees.max_entry_cost'] = [{ src: 'SPB', v: 0.50, eff: '2026-03-01', rec: '2026-03-02T07:30' }];
+C('sc2', 'fees.management_fee').push({ src: 'MANUAL', v: 0.65, eff: '2026-09-01', rec: '2026-09-04T14:22', by: 'j.devries', reason: 'Prospectus supplement dated 2026-09-01; providers not yet updated.' });
+
+// NAV time series
+function rng(seed) { let x = seed; return () => (x = (x * 1103515245 + 12345) % 2147483648) / 2147483648; }
+const NAV_DATES = [];
+for (let d = new Date(Date.UTC(2026, 8, 28)); d <= new Date(Date.UTC(2026, 10, 9)); d.setUTCDate(d.getUTCDate() + 1)) {
+  if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) NAV_DATES.push(d.toISOString().slice(0, 10));
+}
+const nextDay = iso => { const d = new Date(iso + 'T00:00Z'); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); };
+const nav = {};
+SC.forEach((s, i) => {
+  const r = rng(i + 7); let p = s.nav * 0.97; nav[s.id] = {};
+  for (const dt of NAV_DATES) {
+    p = p * (1 + (r() - 0.48) * 0.016);
+    const v = Math.round(p * 100) / 100;
+    nav[s.id][dt] = [{ src: 'SPA', v, eff: dt, rec: nextDay(dt) + 'T06:05' }, { src: 'SPB', v, eff: dt, rec: nextDay(dt) + 'T07:40' }];
+  }
+});
+const lastNavDate = NAV_DATES[NAV_DATES.length - 1];
+{ const a = nav.sc7[lastNavDate][0]; a.v = Math.round(a.v * 1.182 * 100) / 100; a.blocked = 'nav_jump'; }
+
+// ---------- priority rules (versioned) ----------
+const rules = {
+  global: [{ order: ['MANUAL', 'SPA', 'SPB', 'CLIENT'], from: '2026-01-01T00:00', by: 'config/priority/default.yaml @ 3f9c2e1' }],
+  client: [],
+  dp: { 'fees.max_entry_cost': [{ order: ['MANUAL', 'SPB', 'SPA', 'CLIENT'], from: '2026-06-01T09:00', by: 'a.bakker' }] },
+};
+const latest = (versions, t) => versions.filter(v => v.from <= t).sort((a, b) => a.from < b.from ? 1 : -1)[0];
+function ruleFor(dp, t) {
+  const d = rules.dp[dp] && latest(rules.dp[dp], t); if (d) return { level: 'Data point override', ...d };
+  const c = latest(rules.client, t); if (c) return { level: 'Client override', ...c };
+  return { level: 'Global default', ...latest(rules.global, t) };
+}
+
+// ---------- exceptions and audit ----------
+const exceptions = [
+  { id: 'EX-1042', sev: 'blocking', check: 'nav_jump', sc: 'sc7', dp: 'nav.value', eff: lastNavDate, src: 'SPA', created: '2026-11-10T06:05', status: 'open',
+    text: 'Provider A NAV moved +18.2 % day on day (threshold 5 %). Provider B shows a normal move. The golden copy uses Provider B until someone decides.' },
+  { id: 'EX-1041', sev: 'blocking', check: 'range', sc: 'sc6', dp: 'fees.ongoing_charges', eff: '2026-11-01', src: 'SPB', created: '2026-11-03T07:30', status: 'open',
+    text: 'Provider B sent 121.0 for ongoing charges (allowed 0–10 %). Likely a unit error: basis points instead of percent.' },
+  { id: 'EX-1039', sev: 'warning', check: 'divergence', sc: 'sc1', dp: 'fees.ongoing_charges', eff: '2026-10-15', src: 'SPB', created: '2026-10-15T06:12', status: 'open',
+    text: 'Provider A 1.45 % vs Provider B 1.52 % (tolerance 0.05 percentage point).' },
+  { id: 'EX-1037', sev: 'warning', check: 'required', sc: 'sc4', dp: 'share_class.sri', eff: '2026-01-01', src: null, created: '2026-10-02T06:10', status: 'open',
+    text: 'No source delivers the SRI for this share class. Check the latest PRIIPs KID.' },
+  { id: 'EX-1031', sev: 'warning', check: 'stale', sc: 'sc5', dp: 'fees.max_entry_cost', eff: '2026-03-01', src: 'SPB', created: '2026-09-01T06:00', status: 'open',
+    text: 'Only Provider B delivers this value; last received 2 Mar 2026 (older than 180 days).' },
+  { id: 'EX-1029', sev: 'warning', check: 'not_in_universe', sc: null, dp: null, eff: '2026-11-03', src: 'SPB', created: '2026-11-03T07:31', status: 'open', isin: COVERAGE[0].isin,
+    text: `Provider B file sample_b_20261103.csv, row 14: ISIN ${COVERAGE[0].isin} (Rijn Euro Equity A Acc EUR) is not in this client’s universe. Add it to the universe or ignore.` },
+  { id: 'EX-0988', sev: 'warning', check: 'divergence', sc: 'sc2', dp: 'fees.management_fee', eff: '2026-09-01', src: 'MANUAL', created: '2026-09-02T06:10', status: 'resolved',
+    text: 'Prospectus supplement lowered the fee to 0.65 %.', resolution: 'Manual correction 0.65 % by j.devries' },
+];
+const audit = [
+  { at: '2026-01-02T09:00', actor: 'onboarding', action: 'universe.add', obj: '3 funds · 8 share classes', details: 'Initial universe from client onboarding file' },
+  { at: '2026-06-01T09:00', actor: 'a.bakker', action: 'override.create', obj: 'fees.max_entry_cost', details: 'Manual > Provider B > Provider A > Client entry' },
+  { at: '2026-09-04T14:22', actor: 'j.devries', action: 'correction.create', obj: SC[1].isin + ' · fees.management_fee', details: '0.65 % · Prospectus supplement dated 2026-09-01' },
+  { at: '2026-11-10T06:05', actor: 'system', action: 'ingestion.run', obj: 'Provider A · run 8812', details: '8 share classes, 104 values, 1 exception' },
+  { at: '2026-11-10T07:40', actor: 'system', action: 'ingestion.run', obj: 'Provider B · run 8813', details: '8 share classes, 96 values, 0 exceptions' },
+  { at: '2026-11-10T07:45', actor: 'system', action: 'golden.compute', obj: 'All share classes', details: '1 fallback (Delta Multi-Asset B NAV → Provider B)' },
+  { at: '2026-11-10T08:00', actor: 'api:fundscreener-prod', action: 'api.read', obj: '/v1/share-classes', details: '312 requests since 00:00' },
+];
+
+// ---------- golden copy resolver ----------
+const versionAt = (list, src, t) => list.filter(c => c.src === src && c.rec <= t).sort((a, b) => a.rec < b.rec ? 1 : -1)[0];
+function resolveList(list, dp, t) {
+  const rule = ruleFor(dp, t);
+  const rows = []; let chosen = null; let fallback = null;
+  for (const src of rule.order) {
+    const c = versionAt(list, src, t);
+    if (!c) { rows.push({ src, status: 'none' }); continue; }
+    if (c.blocked) { rows.push({ src, c, status: 'blocked' }); if (!chosen) fallback = `${PROVIDERS[src].short} skipped: ${c.blocked.replace('_', ' ')} check failed`; continue; }
+    if (!chosen) { chosen = { src, c }; rows.push({ src, c, status: 'chosen' }); } else rows.push({ src, c, status: 'eligible' });
+  }
+  if (list.some(c => c.src === 'SPC' && c.rec <= t)) rows.push({ src: 'SPC', status: 'unlicensed' });
+  return { rule, rows, chosen, fallback };
+}
+const resolve = (sc, dp, t = state.knownAt) => resolveList(cand[sc][dp] || [], dp, t);
+function latestNav(sc, t = state.knownAt) {
+  if (!nav[sc]) return null;
+  for (let i = NAV_DATES.length - 1; i >= 0; i--) { const r = resolveList(nav[sc][NAV_DATES[i]], 'nav.value', t); if (r.chosen) return { date: NAV_DATES[i], ...r }; }
+  return null;
+}
+// Universe membership at a moment (bitemporal too)
+const inUniverse = (s, t = state.knownAt) => s.addedAt <= t && (!s.removedAt || s.removedAt > t);
+const activeSC = () => SC.filter(s => inUniverse(s));
+const visibleEx = () => exceptions.filter(e => e.created <= state.knownAt);
+
+// ---------- formatting ----------
+const esc = s => String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+const fmtDate = iso => { if (!iso) return '—'; const d = new Date(iso.slice(0, 10) + 'T00:00Z'); return isNaN(d) ? esc(iso) : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }); };
+const fmtTs = iso => iso ? `${fmtDate(iso)} ${iso.slice(11, 16)}` : '—';
+function fmtVal(dp, v, sc) {
+  if (v === undefined || v === null || v === '') return '—';
+  const t = DP[dp].type;
+  if (t === 'pct') return Number(v).toFixed(2) + ' %';
+  if (t === 'date') return fmtDate(v);
+  if (t === 'nav') return Number(v).toFixed(2) + ' ' + (scById(sc)?.ccy || '');
+  return esc(v);
+}
+const srcChip = src => `<span class="chip src src-${src}">${esc(PROVIDERS[src].short)}</span>`;
+const sevChip = s => s === 'blocking' ? '<span class="chip bad">Blocking</span>' : '<span class="chip warn">Warning</span>';
+const scById = id => SC.find(s => s.id === id);
+const pastNotice = () => isNow() ? '' : `<div class="notice">You are viewing the platform as it was known on <b>${fmtTs(state.knownAt)}</b>. Values, universe and rules are replayed from history. Changes are disabled.</div>`;
+
+// ---------- navigation ----------
+const AREAS = [
+  { id: 'universe', label: 'Universe', routes: ['universe'] },
+  { id: 'quality', label: 'Data quality', routes: ['overview', 'exceptions'], tabs: [['overview', 'Overview'], ['exceptions', 'Exceptions']] },
+  { id: 'settings', label: 'Settings', routes: ['rules', 'sources', 'delivery', 'audit', 'catalogue'],
+    tabs: [['rules', 'Priority rules'], ['sources', 'Sources'], ['delivery', 'Delivery'], ['audit', 'Audit log'], ['catalogue', 'Catalogue']] },
+];
+const areaOf = r => r.startsWith('sc-') ? AREAS[0] : AREAS.find(a => a.routes.includes(r)) || AREAS[0];
+function renderNav() {
+  const open = visibleEx().filter(e => e.status === 'open').length;
+  const cur = areaOf(state.route);
+  document.getElementById('mainnav').innerHTML = AREAS.map(a =>
+    `<a href="#${a.routes[0]}" class="${a === cur ? 'on' : ''}" ${a === cur ? 'aria-current="page"' : ''}>${a.label}${a.id === 'quality' && open ? `<span class="badge">${open}</span>` : ''}</a>`).join('');
+}
+const areaTabs = () => { const a = areaOf(state.route); return a.tabs ? `<nav class="tabs" aria-label="${a.label}">${a.tabs.map(([r, l]) => `<a href="#${r}" class="${state.route === r ? 'on' : ''}">${l}</a>`).join('')}</nav>` : ''; };
+
+// ---------- Universe ----------
+function viewUniverse() {
+  const t = state.knownAt; const q = state.q.toLowerCase();
+  const all = SC.filter(s => s.addedAt <= t);
+  const shown = all.filter(s => {
+    const removed = !inUniverse(s, t);
+    if (state.filter === 'removed' ? !removed : removed) return false;
+    if (state.filter === 'client' && s.origin !== 'client') return false;
+    if (state.filter === 'provider' && s.origin !== 'provider') return false;
+    return !q || s.isin.toLowerCase().includes(q) || s.name.toLowerCase().includes(q) || FUNDS[s.fund].name.toLowerCase().includes(q);
+  });
+  const active = all.filter(s => inUniverse(s, t));
+  const fundCount = new Set(active.map(s => s.fund)).size;
+  const clientCount = active.filter(s => s.origin === 'client').length;
+  const removedCount = all.length - active.length;
+  const byFund = {}; shown.forEach(s => (byFund[s.fund] ||= []).push(s));
+  const exFor = id => visibleEx().filter(e => e.sc === id && e.status === 'open');
+  const rows = Object.entries(byFund).map(([fk, list]) => {
+    const f = FUNDS[fk];
+    return `<tr class="fundrow"><td colspan="5"><b>${esc(f.name)}</b> <span class="meta">· ${esc(LEGAL[f.legal] || f.legal)} · ${esc(f.dom)} · ${esc(f.sfdr)}</span> ${f.origin === 'client' ? '<span class="chip src src-CLIENT">Client-created</span>' : ''}</td>
+      <td class="num meta">${list.length} share class${list.length > 1 ? 'es' : ''}</td><td></td></tr>` +
+      list.map(s => {
+        const removed = !inUniverse(s, t);
+        const ocf = resolve(s.id, 'fees.ongoing_charges'); const n = latestNav(s.id); const ex = exFor(s.id);
+        const st = removed ? `<span class="chip mute">Removed ${fmtDate(s.removedAt)}</span>`
+          : ex.some(e => e.sev === 'blocking') ? '<span class="chip bad">Blocking</span>' : ex.length ? `<span class="chip warn">${ex.length} warning${ex.length > 1 ? 's' : ''}</span>`
+          : (s.addedAt.startsWith('2026-11-10') ? '<span class="chip ok">Added today</span>' : '<span class="chip ok">Complete</span>');
+        const action = !isNow() ? '' : removed ? `<button class="ghost" data-restore="${s.id}">Restore</button>` : `<button class="ghost danger" data-remove="${s.id}">Remove</button>`;
+        const flash = state.flash && state.flash.includes(s.id) ? ' style="box-shadow:inset 3px 0 0 var(--bright-blue)"' : '';
+        let out = `<tr class="click ${removed ? 'removed' : ''}" data-go="sc-${s.id}"${flash}><td class="isin">${s.isin}</td><td>${esc(s.name)}<div class="meta">${s.origin === 'client' ? 'Client entry' : 'Provider data'} · added ${fmtDate(s.addedAt)} by ${esc(s.addedBy)}</div></td><td>${esc(s.ccy)}</td>
+          <td class="num">${ocf.chosen ? fmtVal('fees.ongoing_charges', ocf.chosen.c.v) : '—'}</td>
+          <td class="num">${n ? n.chosen.c.v.toFixed(2) : '—'}<div class="meta">${n ? fmtDate(n.date) : 'No NAV yet'}</div></td><td>${st}</td><td class="num">${action}</td></tr>`;
+        if (state.confirmRemove === s.id) out += `<tr class="confirm"><td colspan="7"><div class="actions" style="justify-content:space-between">
+          <span>Remove <b>${esc(s.name)}</b> from the universe? The platform stops collecting and delivering it, including to Fundscreener. History is kept.</span>
+          <span class="actions"><button class="btn sm" data-cancelremove="1">Cancel</button><button class="btn sm primary" data-doremove="${s.id}">Remove</button></span></div></td></tr>`;
+        return out;
+      }).join('');
+  }).join('');
+  const filters = [['all', 'In universe'], ['provider', 'Provider data'], ['client', 'Client-created'], ['removed', `Removed (${removedCount})`]];
+  return `${pastNotice()}
+  <div class="pagehead"><div><h1>Universe</h1>
+    <p class="lead">The funds and share classes Demo Asset Management follows. What is in the universe is collected, checked and delivered. Removing keeps the history.</p>
+    <p class="meta" style="margin:6px 0 0">${fundCount} funds · ${active.length} share classes · ${clientCount} client-created</p></div>
+    ${isNow() ? `<div class="actions"><button class="btn" data-open="add">Add share classes</button><button class="btn primary" data-open="create">Create fund</button></div>` : ''}</div>
+  <section class="card">
+    <div class="toolbar"><div class="search"><input id="q" type="search" placeholder="Search ISIN, share class or fund" aria-label="Search the universe" value="${esc(state.q)}"></div>
+      <div class="filters">${filters.map(([k, l]) => `<button class="fchip ${state.filter === k ? 'on' : ''}" data-filter="${k}">${l}</button>`).join('')}</div></div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>ISIN</th><th>Share class</th><th>Ccy</th><th class="num">Ongoing charges</th><th class="num">Latest NAV</th><th>Status</th><th></th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7" class="meta">No share class matches these filters. Clear the search or choose another filter.</td></tr>`}</tbody>
+    </table></div></section>`;
+}
+
+function lineageTable(r, dp, sc) {
+  const label = { chosen: '<span class="chip ok">Chosen</span>', eligible: '<span class="chip mute">Eligible</span>', blocked: '<span class="chip bad">Blocked by check</span>', none: '<span class="chip mute">No value</span>', unlicensed: '<span class="chip mute">Not licensed · value hidden</span>' };
+  const rows = r.rows.filter(x => x.status !== 'none' || x.src !== 'CLIENT');
+  return `<div class="why">Rule: <b>${r.rule.level}</b> · ${r.rule.order.map(s => PROVIDERS[s].short).join(' › ')} · since ${fmtTs(r.rule.from)} (${esc(r.rule.by)})${r.fallback ? ` · <span style="color:var(--orange-text)">${esc(r.fallback)}</span>` : ''}</div>
+    <div class="tablewrap"><table><thead><tr><th>Rank</th><th>Source</th><th class="num">Value</th><th>Applies to</th><th>Received</th><th>Status</th></tr></thead><tbody>
+    ${rows.map((x, i) => `<tr><td>${x.status === 'unlicensed' ? '—' : i + 1}</td><td>${srcChip(x.src)}${x.c && x.c.by ? ` <span class="meta">by ${esc(x.c.by)}</span>` : ''}</td>
+      <td class="num">${x.c && x.status !== 'unlicensed' ? fmtVal(dp, x.c.v, sc) : '—'}</td><td class="ts">${x.c ? fmtDate(x.c.eff) : '—'}</td><td class="ts">${x.c ? fmtTs(x.c.rec) : '—'}</td><td>${label[x.status]}</td></tr>
+      ${x.c && x.c.reason ? `<tr><td></td><td colspan="5" class="why">Reason: ${esc(x.c.reason)}</td></tr>` : ''}`).join('')}
+    </tbody></table></div>`;
+}
+
+function correctionForm(sc, dp, exId) {
+  if (!isNow()) return '';
+  return `<form class="form" data-correct="${sc}|${dp}|${exId || ''}">
+    <h3>Add manual correction</h3>
+    <span class="why">Stored as source “Manual” with your name and time. Provider values stay unchanged.</span>
+    <div class="field"><label for="cv-${sc}-${dp}">Value${DP[dp].type === 'pct' ? ' (%)' : ''}</label><input type="text" id="cv-${sc}-${dp}" name="v" inputmode="decimal"></div>
+    <div class="field"><label for="cr-${sc}-${dp}">Reason (document and date)</label><textarea id="cr-${sc}-${dp}" name="r"></textarea></div>
+    ${state.formErr ? `<span class="err">${esc(state.formErr)}</span>` : ''}
+    <div class="actions"><button class="btn" type="submit">Add correction</button></div></form>`;
+}
+
+function viewShareClass(id) {
+  const s = scById(id); if (!s || s.addedAt > state.knownAt) return `<p>This share class was not in the universe at that time.</p><a href="#universe">Back to universe</a>`;
+  const removed = !inUniverse(s);
+  const tabs = [['char', 'Characteristics'], ['fees', 'Fees and costs'], ['nav', 'NAV']];
+  let body;
+  if (state.tab === 'nav') body = navTab(s);
+  else {
+    const list = DPS.filter(d => d.group === state.tab);
+    body = `<div class="tablewrap"><table><thead><tr><th>Data point</th><th class="num">Golden value</th><th>Source</th><th>Applies to</th><th>Received</th><th></th></tr></thead><tbody>
+    ${list.map(d => {
+      const r = resolve(s.id, d.code); const k = s.id + '|' + d.code; const open = state.open.has(k);
+      const ex = visibleEx().find(e => e.sc === s.id && e.dp === d.code && e.status === 'open');
+      return `<tr class="click" data-toggle="${k}" aria-expanded="${open}"><td>${esc(d.label)} ${ex ? sevChip(ex.sev) : ''}<div class="meta">${d.code}</div></td>
+        <td class="num">${r.chosen ? fmtVal(d.code, r.chosen.c.v, s.id) : '<span class="chip warn">No value</span>'}</td>
+        <td>${r.chosen ? srcChip(r.chosen.src) : '—'}</td><td class="ts">${r.chosen ? fmtDate(r.chosen.c.eff) : '—'}</td><td class="ts">${r.chosen ? fmtTs(r.chosen.c.rec) : '—'}</td>
+        <td class="num"><span class="ghost">${open ? 'Hide' : 'Lineage'}</span></td></tr>
+        ${open ? `<tr class="lineage"><td colspan="6"><div class="lin">${lineageTable(r, d.code, s.id)}${removed ? '' : correctionForm(s.id, d.code, ex && ex.id)}</div></td></tr>` : ''}`;
+    }).join('')}</tbody></table></div>`;
+  }
+  const f = FUNDS[s.fund];
+  return `${pastNotice()}
+  <div class="pagehead"><div><a class="back" href="#universe">← Universe</a><h1>${esc(s.name)}</h1>
+    <p class="lead"><span class="isin">${s.isin}</span> · ${esc(f.name)} · ${esc(LEGAL[f.legal] || f.legal)} · ${s.origin === 'client' ? 'client-created' : 'provider data'}${removed ? ` · <b>removed ${fmtDate(s.removedAt)}</b>` : ''}</p>
+    <p class="meta" style="margin:4px 0 0">Click a data point to see every source and why one value was chosen.</p></div></div>
+  <section class="card"><div class="tabs" role="tablist" style="padding:0 16px">${tabs.map(([k, l]) => `<button role="tab" aria-selected="${state.tab === k}" class="${state.tab === k ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>${body}</section>`;
+}
+
+function navTab(s) {
+  const pts = nav[s.id] ? NAV_DATES.map(dt => ({ dt, r: resolveList(nav[s.id][dt], 'nav.value', state.knownAt) })).filter(p => p.r.chosen) : [];
+  if (!pts.length) return `<div class="bd meta" style="padding:24px">No NAV received yet. ${s.origin === 'client' ? 'Client-created funds get NAVs once a provider covers them or the client uploads them.' : 'The first NAV arrives with the next provider run.'}</div>`;
+  const vals = pts.map(p => p.r.chosen.c.v); const min = Math.min(...vals), max = Math.max(...vals);
+  const W = 680, H = 210, L = 56, R = 16, T = 14, B = 26; const pad = (max - min) * 0.1 || 1;
+  const y = v => T + (H - T - B) * (1 - (v - (min - pad)) / ((max + pad) - (min - pad)));
+  const x = i => L + (W - L - R) * (pts.length === 1 ? 0 : i / (pts.length - 1));
+  const line = pts.map((p, i) => `${x(i).toFixed(1)},${y(p.r.chosen.c.v).toFixed(1)}`).join(' ');
+  const area = `${x(0)},${H - B} ${line} ${x(pts.length - 1)},${H - B}`;
+  const ticks = [min, (min + max) / 2, max]; const last = pts[pts.length - 1];
+  const fb = pts.map((p, i) => p.r.fallback ? `<circle cx="${x(i)}" cy="${y(p.r.chosen.c.v)}" r="5" fill="#FF9800"/>` : '').join('');
+  const tail = pts.slice(-8).reverse();
+  return `<div style="padding:24px;display:flex;flex-direction:column;gap:12px">
+    <div class="legend"><span><span class="dot" style="background:var(--dark-blue)"></span>Golden NAV (${s.ccy})</span><span><span class="dot" style="background:var(--orange)"></span>Taken from second-ranked source</span></div>
+    <div class="tablewrap"><svg class="chart" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Golden NAV over time">
+      ${ticks.map(t => `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="#F0F2F5"/><text x="${L - 6}" y="${y(t) + 4}" text-anchor="end">${t.toFixed(2)}</text>`).join('')}
+      <polygon points="${area}" fill="rgba(0,72,144,.1)"/>
+      <polyline points="${line}" fill="none" stroke="#004890" stroke-width="2"/>
+      ${fb}<circle cx="${x(pts.length - 1)}" cy="${y(last.r.chosen.c.v)}" r="4" fill="#004890"/>
+      <text x="${L}" y="${H - 6}">${fmtDate(pts[0].dt)}</text><text x="${W - R}" y="${H - 6}" text-anchor="end">${fmtDate(last.dt)}</text>
+    </svg></div>
+    <span class="caption">Source: golden copy (Provider A, Provider B by priority) · NAV as of ${fmtDate(last.dt)} · synthetic data</span>
+    <div class="tablewrap"><table><thead><tr><th>NAV date</th><th class="num">Golden NAV</th><th>Source</th><th>Received</th><th>Other sources</th></tr></thead><tbody>
+    ${tail.map(p => `<tr><td class="ts">${fmtDate(p.dt)}</td><td class="num">${p.r.chosen.c.v.toFixed(2)}</td><td>${srcChip(p.r.chosen.src)}</td><td class="ts">${fmtTs(p.r.chosen.c.rec)}</td>
+      <td>${p.r.rows.filter(x => x.status !== 'chosen' && x.c).map(x => `${srcChip(x.src)} <span class="num">${x.c.v.toFixed(2)}</span>${x.status === 'blocked' ? ' <span class="chip bad">blocked</span>' : ''}`).join(' ')}</td></tr>`).join('')}
+    </tbody></table></div></div>`;
+}
+
+// ---------- Data quality ----------
+function viewOverview() {
+  let filled = 0, total = 0, fallbacks = 0; const act = activeSC();
+  for (const s of act) for (const d of STATIC_DPS) { total++; const r = resolve(s.id, d.code); if (r.chosen) filled++; if (r.fallback && r.chosen) fallbacks++; }
+  const navSC = act.filter(s => nav[s.id]);
+  const navOk = navSC.filter(s => latestNav(s.id)?.date === lastNavDate).length;
+  const navFb = navSC.filter(s => { const r = latestNav(s.id); return r && r.fallback; }).length;
+  const open = visibleEx().filter(e => e.status === 'open'); const blocking = open.filter(e => e.sev === 'blocking').length;
+  const byCheck = {}; open.forEach(e => byCheck[e.check] = (byCheck[e.check] || 0) + 1); const maxC = Math.max(1, ...Object.values(byCheck));
+  return `${pastNotice()}
+  <div class="pagehead"><div><h1>Data quality</h1><p class="lead">State of the golden copy for Demo Asset Management, ${isNow() ? 'today' : 'as known on ' + fmtDate(state.knownAt)}.</p></div></div>
+  ${areaTabs()}
+  <div class="grid tiles">
+    <a class="card tile ${blocking ? 'alert' : ''}" href="#exceptions"><span class="lab">Open exceptions</span><span class="val">${open.length}</span><span class="meta">${blocking} blocking · ${open.length - blocking} warnings</span></a>
+    <div class="card tile"><span class="lab">Golden coverage</span><span class="val">${total ? (filled / total * 100).toFixed(1) : '0.0'} %</span><span class="meta">${filled} of ${total} values · ${fallbacks} via fallback</span></div>
+    <div class="card tile"><span class="lab">NAV ${fmtDate(lastNavDate)}</span><span class="val">${navOk} / ${act.length}</span><span class="meta">${navFb ? navFb + ' from second-ranked source' : 'all from first-ranked source'}</span></div>
+    <div class="card tile"><span class="lab">Universe</span><span class="val">${act.length}</span><span class="meta">share classes in ${new Set(act.map(s => s.fund)).size} funds</span></div>
+  </div>
+  <div class="grid two">
+    <section class="card"><div class="hd"><h2>Last ingestion runs</h2><a href="#sources">Sources</a></div>
+      <div class="tablewrap"><table><thead><tr><th>Source</th><th>Received</th><th class="num">Values</th><th>Status</th></tr></thead><tbody>
+        <tr><td>${srcChip('SPA')}</td><td class="ts">${fmtTs('2026-11-10T06:05')}</td><td class="num">104</td><td><span class="chip warn">1 exception</span></td></tr>
+        <tr><td>${srcChip('SPB')}</td><td class="ts">${fmtTs('2026-11-10T07:40')}</td><td class="num">96</td><td><span class="chip ok">Succeeded</span></td></tr>
+        <tr><td>${srcChip('SPB')}</td><td class="ts">${fmtTs('2026-11-03T07:30')}</td><td class="num">96</td><td><span class="chip warn">2 exceptions</span></td></tr>
+      </tbody></table></div></section>
+    <section class="card"><div class="hd"><h2>Open exceptions by check</h2><a href="#exceptions">Open queue</a></div>
+      <div class="bd" style="display:flex;flex-direction:column;gap:12px">
+        ${Object.entries(byCheck).map(([k, n]) => `<div class="bar"><span>${k.replaceAll('_', ' ')}</span><span class="track"><span class="fill" style="width:${n / maxC * 100}%"></span></span><span class="num">${n}</span></div>`).join('') || '<p class="meta">Nothing open.</p>'}
+      </div></section>
+  </div>`;
+}
+
+function viewExceptions() {
+  const vis = visibleEx();
+  const list = [...vis].sort((a, b) => (a.status === b.status ? 0 : a.status === 'open' ? -1 : 1) || (a.sev === b.sev ? 0 : a.sev === 'blocking' ? -1 : 1));
+  const e = vis.find(x => x.id === state.sel) || list[0];
+  const s = e && e.sc && scById(e.sc);
+  let candidates = '';
+  if (e && e.sc && e.dp) {
+    const r = e.dp === 'nav.value' ? resolveList(nav[e.sc][e.eff], 'nav.value', state.knownAt) : resolve(e.sc, e.dp);
+    candidates = lineageTable(r, e.dp, e.sc);
+  }
+  const blockedCand = e && e.sc && e.dp && (e.dp === 'nav.value' ? nav[e.sc][e.eff] : cand[e.sc][e.dp]).find(c => c.blocked);
+  const cov = e && e.check === 'not_in_universe' && COVERAGE.find(c => c.isin === e.isin);
+  const acts = e && e.status === 'open' && isNow() ? `<div class="actions">
+      ${blockedCand ? `<button class="btn primary" data-ex="keep">Keep excluded and close</button><button class="btn" data-ex="accept">Accept ${PROVIDERS[blockedCand.src].short} value as correct</button>`
+        : cov ? `<button class="btn primary" data-ex="adduniverse">Add to universe</button>`
+        : `<button class="btn primary" data-ex="confirm">Confirm golden value and close</button>`}
+      <button class="ghost danger" data-ex="ignore">Ignore</button></div>` : '';
+  return `${pastNotice()}
+  <div class="pagehead"><div><h1>Data quality</h1><p class="lead">Values that failed a quality check or could not be matched. Blocking values stay out of the golden copy until someone decides.</p></div></div>
+  ${areaTabs()}
+  <div class="queue">
+    <section class="card">${list.map(x => `<div class="exc ${x.id === (e && e.id) ? 'sel' : ''}" data-sel="${x.id}" tabindex="0" role="button">
+      <span class="stripe ${x.status !== 'open' ? 'done' : x.sev}"></span><div class="in">
+      <div class="row1"><b>${x.id}</b>${x.status === 'open' ? sevChip(x.sev) : `<span class="chip mute">${x.status}</span>`}<span class="chip mute">${x.check.replaceAll('_', ' ')}</span>${x.src ? srcChip(x.src) : ''}</div>
+      <div>${x.sc ? esc(scById(x.sc).name) : 'Record outside the universe'}${x.dp ? ' · ' + esc(DP[x.dp].label) : ''}</div>
+      <div class="meta">Raised ${fmtTs(x.created)} · applies to ${fmtDate(x.eff)}</div></div></div>`).join('') || '<div class="bd meta">No exceptions at this time.</div>'}</section>
+    ${e ? `<section class="card"><div class="hd"><h2>${e.id}</h2>${e.status === 'open' ? sevChip(e.sev) : `<span class="chip mute">${e.status}</span>`}</div>
+      <div class="bd" style="display:flex;flex-direction:column;gap:16px">
+        <div>${s ? `<a href="#sc-${s.id}">${esc(s.name)}</a> <span class="isin meta">${s.isin}</span>` : '<span class="meta">No share class in the universe</span>'}${e.dp ? `<div class="meta">${e.dp} · applies to ${fmtDate(e.eff)}</div>` : ''}</div>
+        <p style="margin:0">${esc(e.text)}</p>
+        ${e.resolution ? `<p class="why" style="margin:0">Resolution: ${esc(e.resolution)}</p>` : ''}
+        ${candidates}
+        ${acts}
+        ${e.status === 'open' && e.dp && e.dp !== 'nav.value' ? correctionForm(e.sc, e.dp, e.id) : ''}
+      </div></section>` : ''}
+  </div>`;
+}
+
+// ---------- Settings ----------
+function orderList(order, editable, key) {
+  return `<ol class="order">${order.map((src, i) => `<li><span class="rank">${i + 1}</span><span class="sp">${srcChip(src)}</span>
+    ${editable ? `<button class="ghost" data-move="${key}|${i}|-1" ${i === 0 ? 'disabled' : ''} aria-label="Move up">↑</button><button class="ghost" data-move="${key}|${i}|1" ${i === order.length - 1 ? 'disabled' : ''} aria-label="Move down">↓</button>` : ''}</li>`).join('')}</ol>`;
+}
+function viewRules() {
+  const t = state.knownAt; const g = latest(rules.global, t); const c = latest(rules.client, t); const ed = state.editOrder;
+  const dpRows = Object.entries(rules.dp).map(([dp, vs]) => [dp, latest(vs, t)]).filter(([, v]) => v);
+  return `${pastNotice()}
+  <div class="pagehead"><div><h1>Settings</h1><p class="lead">The most specific rule wins: data point override, then client override, then the global default. Changes apply from the moment you save; past golden values are not recomputed. Only licensed sources are used.</p></div></div>
+  ${areaTabs()}
+  <div class="grid two" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+    <section class="card"><div class="hd"><div><div class="lvl">Fallback</div><h2>Global default</h2></div><span class="chip mute">Read-only</span></div>
+      <div class="bd" style="display:flex;flex-direction:column;gap:12px">${orderList(g.order, false)}<span class="meta">Set in ${esc(g.by)}. Changed by pull request.</span></div></section>
+    <section class="card"><div class="hd"><div><div class="lvl">Client</div><h2>Client override</h2></div></div>
+      <div class="bd">${c ? orderList(c.order, false) + `<span class="meta">Since ${fmtTs(c.from)} by ${esc(c.by)}</span>` : '<p class="meta" style="margin:0">None. Demo Asset Management uses the global default.</p>'}</div></section>
+    <section class="card"><div class="hd"><div><div class="lvl">Most specific</div><h2>Data point overrides</h2></div></div>
+      <div class="bd" style="display:flex;flex-direction:column;gap:20px">
+        ${dpRows.map(([dp, v]) => { const editing = ed && ed.dp === dp;
+          return `<div style="display:flex;flex-direction:column;gap:8px"><h3>${esc(DP[dp].label)}</h3><span class="meta">${dp}</span>
+            ${orderList(editing ? ed.order : v.order, editing, dp)}<span class="meta">Since ${fmtTs(v.from)} by ${esc(v.by)}</span>
+            ${isNow() ? (editing ? `<div class="actions"><button class="btn primary" data-rule="save">Save from now</button><button class="btn" data-rule="cancel">Cancel</button></div>` : `<div class="actions"><button class="ghost" data-rule="edit|${dp}">Change order</button></div>`) : ''}</div>`; }).join('')}
+        ${isNow() && !ed ? `<div class="actions"><label for="newdp" class="meta">Add for</label><select id="newdp">${DPS.filter(d => !rules.dp[d.code]).map(d => `<option value="${d.code}">${esc(d.label)}</option>`).join('')}</select><button class="btn sm" data-rule="add">Add override</button></div>` : ''}
+      </div></section>
+  </div>`;
+}
+function viewSources() {
+  return `${pastNotice()}
+  <div class="pagehead"><div><h1>Settings</h1><p class="lead">Where the data comes from. Every payload is stored exactly as received before mapping.</p></div></div>
+  ${areaTabs()}
+  <section class="card"><div class="tablewrap"><table><thead><tr><th>Source</th><th>Connection</th><th>Licence</th><th>Mapping</th><th>Last received</th><th class="num">Payloads (30 days)</th></tr></thead><tbody>
+    ${['SPA', 'SPB', 'SPC', 'MS', 'CLIENT'].map(k => { const p = PROVIDERS[k];
+      const lic = k === 'CLIENT' ? '<span class="chip mute">Own data</span>' : p.licensed === true ? `<span class="chip ok">Licensed</span> <span class="meta">${p.licence}</span>` : p.licensed === false ? `<span class="chip bad">Not licensed</span>` : `<span class="chip mute">Planned</span> <div class="meta">${esc(p.licence)}</div>`;
+      return `<tr><td>${srcChip(k)}<div class="meta">${esc(p.name)}</div></td><td>${esc(p.kind)}</td><td>${lic}</td><td class="meta">${p.mapping || '—'}</td>
+      <td class="ts">${k === 'SPA' ? fmtTs('2026-11-10T06:05') : k === 'SPB' ? fmtTs('2026-11-10T07:40') : '—'}</td><td class="num">${k === 'SPA' ? 62 : k === 'SPB' ? 22 : '—'}</td></tr>`; }).join('')}
+  </tbody></table></div></section>
+  <p class="caption">Provider C serves other clients only; its values are never shown here. Morningstar is planned (backlog steps 12a and 21). Client entry holds data the client typed in when creating a fund.</p>`;
+}
+function viewDelivery() {
+  return `${pastNotice()}
+  <div class="pagehead"><div><h1>Settings</h1><p class="lead">Who reads the golden copy. Every API key is scoped to Demo Asset Management only, and only share classes in the universe are delivered.</p></div></div>
+  ${areaTabs()}
+  <div class="grid two">
+    <section class="card"><div class="hd"><h2>API keys</h2></div><div class="tablewrap"><table><thead><tr><th>Name</th><th>Scope</th><th>Expires</th><th>Last used</th></tr></thead><tbody>
+      <tr><td>Fundscreener (production)<div class="meta">fundscreener-prod</div></td><td><span class="chip mute">read: golden values</span></td><td class="ts">${fmtDate('2027-05-10')}</td><td class="ts">${fmtTs('2026-11-10T08:00')}</td></tr>
+      <tr><td>Client data warehouse<div class="meta">dwh-nightly</div></td><td><span class="chip mute">read: values, lineage</span></td><td class="ts">${fmtDate('2027-01-31')}</td><td class="ts">${fmtTs('2026-11-10T02:15')}</td></tr>
+    </tbody></table></div></section>
+    <section class="card"><div class="hd"><h2>Scheduled exports</h2></div><div class="tablewrap"><table><thead><tr><th>Export</th><th>Schedule</th><th>Last run</th><th>Status</th></tr></thead><tbody>
+      <tr><td>Golden copy, full (CSV)</td><td>Weekdays 07:00</td><td class="ts">${fmtTs('2026-11-10T07:00')}</td><td><span class="chip ok">2,104 rows</span></td></tr>
+      <tr><td>Fees and costs (XLSX)</td><td>Monthly, day 1</td><td class="ts">${fmtTs('2026-11-01T07:00')}</td><td><span class="chip ok">96 rows</span></td></tr>
+    </tbody></table></div></section>
+  </div>
+  <section class="card"><div class="hd"><h2>Example API call (Fundscreener)</h2></div><div class="bd"><pre style="margin:0;overflow-x:auto;font-size:13px">GET /v1/share-classes/${SC[0].isin}/values?as_of_date=2026-11-10&amp;known_at=2026-11-10T08:00Z
+Authorization: Bearer &lt;client-scoped token&gt;</pre></div></section>`;
+}
+function viewAudit() {
+  const rows = [...audit].sort((a, b) => a.at < b.at ? 1 : -1).filter(a => a.at <= state.knownAt);
+  return `${pastNotice()}
+  <div class="pagehead"><div><h1>Settings</h1><p class="lead">Every change and every data access, newest first. Entries cannot be edited or deleted.</p></div></div>
+  ${areaTabs()}
+  <section class="card"><div class="tablewrap"><table><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Object</th><th>Details</th></tr></thead><tbody>
+    ${rows.map(a => `<tr><td class="ts">${fmtTs(a.at)}</td><td>${esc(a.actor)}</td><td>${esc(a.action)}</td><td>${esc(a.obj)}</td><td>${esc(a.details)}</td></tr>`).join('')}
+  </tbody></table></div></section>`;
+}
+function viewCatalogue() {
+  return `<div class="pagehead"><div><h1>Settings</h1><p class="lead">Canonical data points of the first scope. Field references to FinDatEx and openfunds are filled from the official specifications (open item A-02).</p></div></div>
+  ${areaTabs()}
+  <section class="card"><div class="tablewrap"><table><thead><tr><th>Code</th><th>Label</th><th>Level</th><th>Type</th><th>Standard</th><th>Quality checks</th></tr></thead><tbody>
+    ${DPS.map(d => `<tr><td>${d.code}</td><td>${esc(d.label)}</td><td>${d.code.startsWith('fund.') ? 'Fund' : 'Share class'}</td><td>${d.type === 'pct' ? 'Percent' : d.type === 'nav' ? 'Amount + currency, daily' : d.type}</td><td>${d.std} <span class="meta">ref TBD</span></td><td class="meta">${d.check || '—'}</td></tr>`).join('')}
+  </tbody></table></div></section>`;
+}
+
+// ---------- Modals: add share classes, create fund ----------
+function modalAdd() {
+  const q = state.pickQ.toLowerCase();
+  const inU = new Set(SC.filter(s => inUniverse(s)).map(s => s.isin));
+  const list = COVERAGE.filter(c => !inU.has(c.isin)).filter(c => !q || c.isin.toLowerCase().includes(q) || c.name.toLowerCase().includes(q));
+  const n = state.pick.size;
+  return `<div class="overlay" data-close="1"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="mt">
+    <button class="x" data-close="1" aria-label="Close">×</button>
+    <h2 id="mt">Add share classes</h2>
+    <p class="lead" style="margin:0">Share classes your licensed providers cover that are not in your universe yet. Once added, they are collected from the next run and delivered to Fundscreener.</p>
+    <input type="search" id="pickq" placeholder="Search ISIN or name" aria-label="Search provider coverage" value="${esc(state.pickQ)}">
+    <div>${list.map(c => { const lic = c.srcs.filter(s => PROVIDERS[s].licensed); const ok = lic.length > 0;
+      return `<label class="pick ${ok ? '' : 'disabled'}"><input type="checkbox" data-pick="${c.isin}" ${state.pick.has(c.isin) ? 'checked' : ''} ${ok ? '' : 'disabled'}>
+        <span><b>${esc(c.name)}</b> <span class="isin meta">${c.isin}</span><br><span class="meta">${esc(coverageFundName(c))} · ${c.ccy}</span><br>
+        ${ok ? c.srcs.map(srcChip).join(' ') : `${srcChip('SPC')} <span class="meta">Only available from Provider C, which this client has no licence for.</span>`}</span></label>`; }).join('') || '<p class="meta">Nothing to add. Every covered share class is already in the universe, or the search matches nothing.</p>'}</div>
+    <p class="meta" style="margin:0">Not listed? Create the fund yourself with “Create fund”.</p>
+    <div class="foot"><button class="btn" data-close="1">Cancel</button><button class="btn primary" data-addpicked="1" ${n ? '' : 'disabled'}>Add ${n || ''} share class${n === 1 ? '' : 'es'}</button></div>
+  </div></div>`;
+}
+const blankSC = () => ({ isin: '', name: '', ccy: 'EUR', dist: 'Accumulating', inc: '', ocf: '', mgmt: '' });
+function modalCreate() {
+  const d = state.draft;
+  const opt = (arr, v) => arr.map(([k, l]) => `<option value="${k}" ${k === v ? 'selected' : ''}>${l}</option>`).join('');
+  return `<div class="overlay" data-close="1"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="mt" style="max-width:600px">
+    <button class="x" data-close="1" aria-label="Close">×</button>
+    <h2 id="mt">Create fund</h2>
+    <p class="lead" style="margin:0">For a fund no provider covers yet, such as a new launch. Values you enter are stored as source “Client entry” with your name. When a provider starts covering the fund, provider values take priority under the current rules.</p>
+    <div class="section"><h3>Fund</h3>
+      <div class="field"><label for="f-name">Fund name</label><input type="text" id="f-name" data-f="fund.name" value="${esc(d.fund.name)}" placeholder="e.g. Amstel Climate Transition Fund"></div>
+      <div class="fields">
+        <div class="field"><label for="f-legal">Legal form</label><select id="f-legal" data-f="fund.legal">${opt(Object.entries(LEGAL), d.fund.legal)}</select></div>
+        <div class="field"><label for="f-dom">Domicile</label><select id="f-dom" data-f="fund.dom">${opt([['NL', 'Netherlands'], ['LU', 'Luxembourg'], ['IE', 'Ireland'], ['BE', 'Belgium'], ['FR', 'France']], d.fund.dom)}</select></div>
+        <div class="field"><label for="f-sfdr">SFDR classification</label><select id="f-sfdr" data-f="fund.sfdr">${opt([['Article 6', 'Article 6'], ['Article 8', 'Article 8'], ['Article 9', 'Article 9']], d.fund.sfdr)}</select></div>
+      </div>
+    </div>
+    ${d.scs.map((s, i) => `<div class="section"><div class="sh"><h3>Share class ${i + 1}</h3>${d.scs.length > 1 ? `<button class="ghost danger" data-delsc="${i}">Remove</button>` : ''}</div>
+      <div class="fields">
+        <div class="field"><label for="s${i}-isin">ISIN</label><input type="text" id="s${i}-isin" data-f="sc.${i}.isin" value="${esc(s.isin)}" placeholder="12 characters" maxlength="12" autocomplete="off"></div>
+        <div class="field"><label for="s${i}-ccy">Currency</label><select id="s${i}-ccy" data-f="sc.${i}.ccy">${opt([['EUR', 'EUR'], ['USD', 'USD'], ['GBP', 'GBP'], ['CHF', 'CHF']], s.ccy)}</select></div>
+      </div>
+      <div class="field"><label for="s${i}-name">Share class name</label><input type="text" id="s${i}-name" data-f="sc.${i}.name" value="${esc(s.name)}" placeholder="e.g. Amstel Climate Transition A Acc EUR"></div>
+      <div class="fields">
+        <div class="field"><label for="s${i}-dist">Distribution policy</label><select id="s${i}-dist" data-f="sc.${i}.dist">${opt([['Accumulating', 'Accumulating'], ['Distributing', 'Distributing']], s.dist)}</select></div>
+        <div class="field"><label for="s${i}-inc">Inception date</label><input type="date" id="s${i}-inc" data-f="sc.${i}.inc" value="${esc(s.inc)}"></div>
+        <div class="field"><label for="s${i}-ocf">Ongoing charges (%)</label><input type="text" inputmode="decimal" id="s${i}-ocf" data-f="sc.${i}.ocf" value="${esc(s.ocf)}" placeholder="e.g. 0.95"></div>
+        <div class="field"><label for="s${i}-mgmt">Management fee (%)</label><input type="text" inputmode="decimal" id="s${i}-mgmt" data-f="sc.${i}.mgmt" value="${esc(s.mgmt)}" placeholder="e.g. 0.70"></div>
+      </div></div>`).join('')}
+    <div><button class="ghost" data-addsc="1">+ Add another share class</button></div>
+    ${state.modalErr ? `<div class="err" role="alert">${state.modalErr}</div>` : ''}
+    <div class="foot"><button class="btn" data-close="1">Cancel</button><button class="btn primary" data-createfund="1">Create fund</button></div>
+  </div></div>`;
+}
+function renderModal() {
+  const el = document.getElementById('modal');
+  el.innerHTML = state.modal === 'add' ? modalAdd() : state.modal === 'create' ? modalCreate() : '';
+}
+
+function validateDraft() {
+  const d = state.draft; const errs = [];
+  if (d.fund.name.trim().length < 3) errs.push('Enter a fund name.');
+  if (Object.values(FUNDS).some(f => f.name.toLowerCase() === d.fund.name.trim().toLowerCase())) errs.push('A fund with this name is already in the universe.');
+  const seen = new Set();
+  d.scs.forEach((s, i) => {
+    const n = `Share class ${i + 1}`; const isin = s.isin.trim().toUpperCase();
+    if (!isinValid(isin)) errs.push(`${n}: the ISIN is not valid. It needs 2 letters, 9 letters or digits, and a correct check digit.`);
+    else if (SC.some(x => x.isin === isin) || COVERAGE.some(c => c.isin === isin)) errs.push(`${n}: ${isin} already exists. Use “Add share classes” for share classes a provider covers.`);
+    else if (seen.has(isin)) errs.push(`${n}: this ISIN is entered twice.`);
+    seen.add(isin);
+    if (s.name.trim().length < 3) errs.push(`${n}: enter a share class name.`);
+    for (const [k, label, max] of [['ocf', 'ongoing charges', 10], ['mgmt', 'management fee', 5]]) {
+      if (s[k] === '') continue; const v = Number(String(s[k]).replace(',', '.'));
+      if (!isFinite(v) || v < 0 || v > max) errs.push(`${n}: ${label} must be a number from 0 to ${max}.`);
+    }
+  });
+  return errs;
+}
+
+function addCoverage(isins) {
+  state.clock += 2; const t = ACTION_TIME(); const added = [];
+  for (const isin of isins) {
+    const c = COVERAGE.find(x => x.isin === isin); if (!c) continue;
+    if (!FUNDS[c.fundKey]) FUNDS[c.fundKey] = { ...newFundOf(c.fundKey) };
+    const existing = SC.find(s => s.isin === isin);
+    if (existing) { existing.removedAt = null; added.push(existing.id); continue; }
+    const id = 'sc' + (SC.length + 1);
+    const s = { id, fund: c.fundKey, isin, name: c.name, ccy: c.ccy, dist: c.dist, inc: c.inc, sri: c.sri, ocf: c.ocf, mgmt: c.mgmt, entry: c.entry, exit: c.exit, tc: c.tc, perf: c.perf,
+      origin: 'provider', addedAt: t, addedBy: USER, removedAt: null };
+    SC.push(s); seedCandidates(s, c.srcs, '2026-11-10', t, t); added.push(id);
+  }
+  audit.push({ at: t, actor: USER, action: 'universe.add', obj: `${added.length} share class${added.length > 1 ? 'es' : ''}`, details: isins.join(', ') });
+  const ex = exceptions.find(e => e.check === 'not_in_universe' && e.status === 'open' && isins.includes(e.isin));
+  if (ex) { ex.status = 'resolved'; ex.resolution = `Share class added to the universe by ${USER}`; }
+  return added;
+}
+
+// ---------- render + routing ----------
+function render() {
+  const r = state.route;
+  const views = { universe: viewUniverse, overview: viewOverview, exceptions: viewExceptions, rules: viewRules, sources: viewSources, delivery: viewDelivery, audit: viewAudit, catalogue: viewCatalogue };
+  const main = document.getElementById('main');
+  const focusId = document.activeElement && main.contains(document.activeElement) ? document.activeElement.id : null;
+  main.innerHTML = r.startsWith('sc-') ? viewShareClass(r.slice(3)) : (views[r] || viewUniverse)();
+  if (focusId === 'q') { const q = document.getElementById('q'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }
+  renderNav(); renderModal();
+}
+function route() {
+  const h = location.hash.replace('#', '') || 'universe';
+  if (h !== state.route) { state.route = h; state.formErr = ''; state.editOrder = null; state.confirmRemove = null; if (!h.startsWith('sc-')) state.open.clear(); }
+  render();
+}
+window.addEventListener('hashchange', () => { route(); window.scrollTo(0, 0); });
+
+let toastTimer;
+function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 3600); }
+function log(action, obj, details) { state.clock += 3; audit.push({ at: ACTION_TIME(), actor: USER, action, obj, details }); }
+function closeModal() { state.modal = null; state.modalErr = ''; renderModal(); }
+
+document.getElementById('knownat').addEventListener('change', e => { state.knownAt = e.target.value; state.editOrder = null; state.confirmRemove = null; closeModal(); render(); });
+
+const main = document.getElementById('main');
+main.addEventListener('input', e => { if (e.target.id === 'q') { state.q = e.target.value; render(); } });
+main.addEventListener('click', e => {
+  const el = e.target.closest('[data-go],[data-toggle],[data-tab],[data-sel],[data-ex],[data-move],[data-rule],[data-filter],[data-remove],[data-doremove],[data-cancelremove],[data-restore],[data-open]');
+  if (!el || el.disabled) return;
+  const ds = el.dataset;
+  if (ds.remove) { e.stopPropagation(); state.confirmRemove = ds.remove; render(); return; }
+  if (ds.cancelremove) { state.confirmRemove = null; render(); return; }
+  if (ds.doremove) { const s = scById(ds.doremove); state.clock += 2; s.removedAt = ACTION_TIME(); state.confirmRemove = null;
+    audit.push({ at: s.removedAt, actor: USER, action: 'universe.remove', obj: s.isin, details: s.name + ' · collection and delivery stopped, history kept' });
+    toast(`${s.name} removed from the universe. History kept; you can restore it from “Removed”.`); render(); return; }
+  if (ds.restore) { e.stopPropagation(); const s = scById(ds.restore); s.removedAt = null; log('universe.restore', s.isin, s.name); toast(`${s.name} is back in the universe.`); render(); return; }
+  if (ds.open) { state.modal = ds.open; state.modalErr = ''; if (ds.open === 'add') { state.pick = new Set(); state.pickQ = ''; } if (ds.open === 'create') state.draft = { fund: { name: '', legal: 'FGR', dom: 'NL', sfdr: 'Article 8' }, scs: [blankSC()] }; renderModal(); const f = document.querySelector('.modal input'); if (f) f.focus(); return; }
+  if (ds.filter) { state.filter = ds.filter; render(); return; }
+  if (ds.go) { location.hash = ds.go; return; }
+  if (ds.toggle) { const k = ds.toggle; state.open.has(k) ? state.open.delete(k) : state.open.add(k); state.formErr = ''; render(); return; }
+  if (ds.tab) { state.tab = ds.tab; render(); return; }
+  if (ds.sel) { state.sel = ds.sel; state.formErr = ''; render(); return; }
+  if (ds.ex) {
+    const x = exceptions.find(z => z.id === state.sel) || visibleEx()[0]; if (!x) return;
+    const list = x.dp === 'nav.value' ? nav[x.sc][x.eff] : x.sc && x.dp ? cand[x.sc][x.dp] : [];
+    const b = list.find(c => c.blocked); const a = ds.ex;
+    if (a === 'adduniverse') { addCoverage([x.isin]); toast('Added to the universe. Values arrive with the next provider run.'); render(); return; }
+    if (a === 'accept' && b) { b.blocked = null; x.status = 'resolved'; x.resolution = `${PROVIDERS[b.src].short} value accepted by ${USER}`; }
+    if (a === 'keep') { x.status = 'resolved'; x.resolution = `Value stays excluded (decided by ${USER})`; }
+    if (a === 'confirm') { x.status = 'resolved'; x.resolution = `Golden value confirmed by ${USER}`; }
+    if (a === 'ignore') { x.status = 'ignored'; x.resolution = `Ignored by ${USER}`; }
+    log('exception.' + (a === 'ignore' ? 'ignore' : 'resolve'), x.id, x.resolution);
+    toast(`${x.id} ${x.status}. Golden copy recomputed.`);
+    const next = exceptions.find(z => z.status === 'open'); if (next) state.sel = next.id;
+    render(); return;
+  }
+  if (ds.move) { const [, i, dir] = ds.move.split('|'); const o = state.editOrder.order; const j = +i + +dir; [o[+i], o[j]] = [o[j], o[+i]]; render(); return; }
+  if (ds.rule) {
+    const [a, dp] = ds.rule.split('|');
+    if (a === 'edit') state.editOrder = { dp, order: [...latest(rules.dp[dp], state.knownAt).order], isNew: false };
+    if (a === 'cancel') { if (state.editOrder.isNew) delete rules.dp[state.editOrder.dp]; state.editOrder = null; }
+    if (a === 'add') { const d = document.getElementById('newdp').value; state.clock += 1; rules.dp[d] = [{ order: [...latest(rules.global, NOW).order], from: ACTION_TIME(), by: USER }]; state.editOrder = { dp: d, order: [...rules.dp[d][0].order], isNew: true }; }
+    if (a === 'save') {
+      const { dp: d, order, isNew } = state.editOrder; log('override.create', d, order.map(s => PROVIDERS[s].short).join(' > '));
+      if (isNew) rules.dp[d][0] = { order: [...order], from: ACTION_TIME(), by: USER }; else rules.dp[d].push({ order: [...order], from: ACTION_TIME(), by: USER });
+      state.editOrder = null; toast(`Override saved for ${DP[d].label}. Applies from ${ACTION_TIME().slice(11)} today.`);
+    }
+    render();
+  }
+});
+main.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.dataset && e.target.dataset.sel) e.target.click(); });
+main.addEventListener('submit', e => {
+  const f = e.target.closest('form[data-correct]'); if (!f) return; e.preventDefault();
+  const [sc, dp, exId] = f.dataset.correct.split('|'); const raw = f.elements.v.value.trim().replace(',', '.'); const reason = f.elements.r.value.trim();
+  const t = DP[dp].type; let v = raw;
+  if (!raw) { state.formErr = 'Enter a value.'; render(); return; }
+  if (t === 'pct' || t === 'int') { v = Number(raw); if (!isFinite(v)) { state.formErr = 'Enter a number, for example 1.45.'; render(); return; } }
+  if (t === 'int' && (v < 1 || v > 7 || !Number.isInteger(v))) { state.formErr = 'The SRI is a whole number from 1 to 7.'; render(); return; }
+  if (reason.length < 5) { state.formErr = 'Give a reason, for example the document and its date.'; render(); return; }
+  log('correction.create', `${scById(sc).isin} · ${dp}`, `${t === 'pct' ? v.toFixed(2) + ' %' : v} · ${reason}`);
+  cand[sc][dp].push({ src: 'MANUAL', v, eff: '2026-11-10', rec: ACTION_TIME(), by: USER, reason });
+  if (exId) { const x = exceptions.find(z => z.id === exId); if (x) { x.status = 'resolved'; x.resolution = `Manual correction by ${USER}: ${reason}`; } }
+  state.formErr = ''; toast('Correction added as source “Manual”. Provider values unchanged.'); render();
+});
+
+// modal events
+const modalEl = document.getElementById('modal');
+modalEl.addEventListener('click', e => {
+  const el = e.target.closest('[data-close],[data-addpicked],[data-addsc],[data-delsc],[data-createfund]');
+  if (!el || el.disabled) return;
+  if (el.dataset.close && (e.target === el || el.tagName === 'BUTTON')) { closeModal(); return; }
+  if (el.dataset.addpicked) {
+    const added = addCoverage([...state.pick]); state.flash = added; state.filter = 'all'; state.q = ''; closeModal();
+    toast(`${added.length} share class${added.length > 1 ? 'es' : ''} added. Values arrive with the next provider run.`);
+    if (state.route !== 'universe') location.hash = 'universe'; else render(); return;
+  }
+  if (el.dataset.addsc) { state.draft.scs.push(blankSC()); renderModal(); return; }
+  if (el.dataset.delsc) { state.draft.scs.splice(+el.dataset.delsc, 1); renderModal(); return; }
+  if (el.dataset.createfund) {
+    const errs = validateDraft(); if (errs.length) { state.modalErr = errs.map(esc).join('<br>'); renderModal(); return; }
+    const d = state.draft; const fk = 'F' + (Object.keys(FUNDS).length + 1); state.clock += 2; const t = ACTION_TIME();
+    FUNDS[fk] = { name: d.fund.name.trim(), legal: d.fund.legal, dom: d.fund.dom, sfdr: d.fund.sfdr, origin: 'client' };
+    const ids = d.scs.map(x => {
+      const id = 'sc' + (SC.length + 1); const num = v => v === '' ? '' : Number(String(v).replace(',', '.'));
+      const s = { id, fund: fk, isin: x.isin.trim().toUpperCase(), name: x.name.trim(), ccy: x.ccy, dist: x.dist, inc: x.inc, ocf: num(x.ocf), mgmt: num(x.mgmt), origin: 'client', addedAt: t, addedBy: USER, removedAt: null };
+      SC.push(s); seedCandidates(s, ['CLIENT'], x.inc || '2026-11-10', t, t); return id;
+    });
+    audit.push({ at: t, actor: USER, action: 'fund.create', obj: FUNDS[fk].name, details: `${LEGAL[d.fund.legal]} · ${ids.length} share class${ids.length > 1 ? 'es' : ''} · source Client entry` });
+    state.flash = ids; state.filter = 'all'; state.q = ''; closeModal();
+    toast(`${FUNDS[fk].name} created with ${ids.length} share class${ids.length > 1 ? 'es' : ''}. Values stored as “Client entry”.`);
+    if (state.route !== 'universe') location.hash = 'universe'; else render();
+  }
+});
+modalEl.addEventListener('input', e => {
+  const t = e.target;
+  if (t.id === 'pickq') { state.pickQ = t.value; renderModal(); const p = document.getElementById('pickq'); p.focus(); p.setSelectionRange(p.value.length, p.value.length); return; }
+  if (t.dataset.pick) { t.checked ? state.pick.add(t.dataset.pick) : state.pick.delete(t.dataset.pick); const b = modalEl.querySelector('[data-addpicked]'); const n = state.pick.size; b.disabled = !n; b.textContent = `Add ${n || ''} share class${n === 1 ? '' : 'es'}`; return; }
+  if (t.dataset.f) { const [a, b, c] = t.dataset.f.split('.'); if (a === 'fund') state.draft.fund[b] = t.value; else state.draft.scs[+b][c] = t.value; }
+});
+modalEl.addEventListener('change', e => { const t = e.target; if (t.dataset.f && t.tagName === 'SELECT') { const [a, b, c] = t.dataset.f.split('.'); if (a === 'fund') state.draft.fund[b] = t.value; else state.draft.scs[+b][c] = t.value; } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && state.modal) closeModal(); });
+
+route();
+})();
+</script>

@@ -1,0 +1,38 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+secrets/
+
+# Real provider data (demo only, never committed; see CLAUDE.md, decision C-05)
+demo_data/
+
+# Java / Gradle (services/core)
+.gradle/
+build/
+out/
+*.class
+!gradle/wrapper/gradle-wrapper.jar
+
+# PHP / Laravel (services/web)
+vendor/
+node_modules/
+services/web/storage/*.key
+services/web/storage/logs/
+services/web/storage/framework/
+services/web/bootstrap/cache/*.php
+services/web/public/build/
+services/web/public/hot
+.phpunit.result.cache
+.phpunit.cache/
+
+# Editors / OS
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
