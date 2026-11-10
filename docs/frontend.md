@@ -93,6 +93,18 @@ No Morningstar co-branding yet: it applies only once Morningstar data is actuall
    (including to Fundscreener). Nothing is deleted: the share class appears under
    "Removed" and can be restored; "Known at" still shows it for earlier dates.
 
+9. **Take over data points from Morningstar (AAIS):** Universe → Data points lists every
+   data point the Fundscreener shows, who delivers it and who leads. "Manage in-house" makes
+   AAIS the leading source from that moment; the data point page then shows one row per
+   share class with the golden value, the Morningstar value and an editable AAIS value.
+   Saved values are source "AAIS", audited, and marked as changed.
+10. **Create a house fund:** same flow as 7, values stored as source "AAIS".
+11. **Go to Fundscreener:** yellow button in the topbar opens a preview in the AAIS
+    Fundscreener look (list, fund page with Caractéristiques / Performances / Documents),
+    fed by the golden copy. Fields changed in Data Management carry a "Modifié" tag.
+    A link opens the real test Fundscreener, which will show the same once it reads the
+    delivery API.
+
 ## 6. Open questions
 
 - F-01: Is the web interface for asset manager staff only, or also for FinFiles sales demos with Fundscreener side by side?
