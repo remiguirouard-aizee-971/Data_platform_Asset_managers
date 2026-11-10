@@ -11,6 +11,9 @@ secrets/
 # Real provider data (demo only, never committed; see CLAUDE.md, decision C-05)
 demo_data/
 
+# Local versioning repository (the "origin" remote); never part of the project itself
+versioning/
+
 # Java / Gradle (services/core)
 .gradle/
 build/
